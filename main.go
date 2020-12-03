@@ -149,7 +149,7 @@ func updateLogRowCountMetricMap(key string, lastValue int64, debug bool) {
 func printLogRowCountMetricMav() {
 	log.Println("Print current content logRowCountMetricMap")
 	keys := make([]string, 0)
-	for k, _ := range logRowCountMetricMap {
+	for k := range logRowCountMetricMap {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
