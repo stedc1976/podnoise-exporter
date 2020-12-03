@@ -1,4 +1,4 @@
-# Prometheus bash exporter
+# Podnoise exporter
 
 Prometheus exporter for pod noise metrics measured with bash scripts.
 
