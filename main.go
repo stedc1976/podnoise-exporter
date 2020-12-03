@@ -96,7 +96,7 @@ func Run(interval int, pathName string, debug bool) {
 			key := val.Namespace + "-" + val.PodName + "-" + val.ContainerLog
 			value := val.RowCount
 
-			if debug == true {
+			if debug {
 				log.Println("New metric read from "+pathName+":", key, value)
 			}
 
@@ -112,7 +112,7 @@ func Run(interval int, pathName string, debug bool) {
 			//store metric into a memory structure for Prometheus (global variable).
 			logRowCountPrometheus.With(prometheus.Labels(prometheusLabels)).Set(logRowCountMetricMap[key])
 
-			if debug == true {
+			if debug {
 				log.Println("New metric saved in memory for Prometheus:", prometheusLabels, logRowCountMetricMap[key])
 			}
 		}
@@ -161,7 +161,7 @@ func updateLogRowCountMetricMap(key string, lastValue int64, debug bool) {
 
 	logRowCountMetricMap[key] = nextValueRoundToNearest
 
-	if debug == true {
+	if debug {
 		log.Println("New metric saved in memory:", key, nextValueRoundToNearest)
 	}
 }
