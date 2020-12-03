@@ -41,53 +41,55 @@ type Metric struct {
 	RowCount     int64  `json:"row_count"`
 }
 
-//Output represents the bash script execution output.
+// Output represents the bash script execution output.
 type Output struct {
 	Metrics []Metric `json:""`
 }
 
-//Init function
+// init
 func init() {
 	// Metrics have to be registered to be exposed:
 	prometheus.MustRegister(logRowCountPrometheus)
 	log.Println("Registered internal metrics")
 }
 
-//Main function
+// main
 func main() {
 	addr := flag.String("web.listen-address", ":9300", "Address on which to expose metrics")
 	interval := flag.Int("interval", 10, "Interval for metrics collection in seconds")
 	pathName := flag.String("pathname", "./scripts/job.sh", "pathname bash script")
 	debug := flag.Bool("debug", true, "Debug log true/false")
 	flag.Parse()
-	//serve the HTTP request
+	// serve the HTTP request
 	http.Handle("/metrics", promhttp.Handler())
-	//invoke the function Run in a goroutine,
+	// invoke the function Run in a goroutine,
 	go Run(int(*interval), *pathName, *debug)
-	//start a web server listening on a specific port for Prometheus scraping
-	//create a goroutine for every HTTP request and run it against a Handler.
+	// start a web server listening on a specific port for Prometheus scraping
+	// create a goroutine for every HTTP request and run it against a Handler.
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
-// This function schedule a job every "interval" seconds.
-// This job run the bash script defined in the param "pathname" that collects metrics.
-// Metrics will be store in a memory map and in a memory structure for Prometheus scraping.
-// If "debug" is true, the job print log messages to stdout (default false).
-// If it encounters any errors, it will panic.
+/*
+Run function schedule a job every "interval" seconds.
+This job run the bash script defined in the param "pathname" that collects metrics.
+Metrics will be store in a memory map and in a memory structure for Prometheus scraping.
+If "debug" is true, the job print log messages to stdout (default false).
+If it encounters any errors, it will panic.
+*/
 func Run(interval int, pathName string, debug bool) {
 	_, err := ioutil.ReadFile(pathName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// This is executed only if the method didn't return an error
+	// this is executed only if the method didn't return an error
 	for {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		o := Output{}
 		p := Params{UseWg: true, Wg: &wg, Path: &pathName}
 
-		//run the job in a goroutine
+		// run the job in a goroutine
 		go o.RunJob(&p)
 		wg.Wait()
 
@@ -100,8 +102,8 @@ func Run(interval int, pathName string, debug bool) {
 				log.Println("New metric read from "+pathName+":", key, value)
 			}
 
-			//store metric into a memory map (global variable)
-			updateLogRowCountMetricMap(key, value, debug)
+			// store metric into a memory map (global variable)
+			UpdateLogRowCountMetricMap(key, value, debug)
 
 			prometheusLabels := map[string]string{}
 
@@ -109,7 +111,7 @@ func Run(interval int, pathName string, debug bool) {
 			prometheusLabels["pod_name"] = val.PodName
 			prometheusLabels["container_log"] = val.ContainerLog
 
-			//store metric into a memory structure for Prometheus (global variable).
+			// store metric into a memory structure for Prometheus (global variable).
 			logRowCountPrometheus.With(prometheus.Labels(prometheusLabels)).Set(logRowCountMetricMap[key])
 
 			if debug {
@@ -120,19 +122,22 @@ func Run(interval int, pathName string, debug bool) {
 	}
 }
 
-// This functon implements a job that run the bash script defined in the param.
-// The job execution output will be saved into the variable "o"
+/*
+RunJob implements a job that run the bash script defined in the param.
+The job execution output will be saved into the variable "o"
+*/
 func (o *Output) RunJob(p *Params) {
 	if p.UseWg {
 		defer p.Wg.Done()
 	}
-	//run the bash script
+	// run the bash script
 	o.RunExec(p.Path)
 }
 
-// This function run the bash script defined in the param that collects metrics.
-// Metrics will be saved into the variable "o"
-// If RunExec encounters any errors, it will panic.
+/* RunExec run the bash script defined in the param that collects metrics.
+Metrics will be saved into the variable "o"
+If RunExec encounters any errors, it will panic.
+*/
 func (o *Output) RunExec(pathname *string) {
 
 	out, err := exec.Command(*pathname).Output()
@@ -146,10 +151,12 @@ func (o *Output) RunExec(pathname *string) {
 	}
 }
 
-// This functon store the metric defined in the param into a memory map (global variable).
-// If the previos values of this metric is greater then 0, the average between the previous value
-// and the current one will be store into the the memory map.
-func updateLogRowCountMetricMap(key string, lastValue int64, debug bool) {
+/*
+UpdateLogRowCountMetricMap store the metric defined in the param into a memory map (global variable).
+If the previos values of this metric is greater then 0, the average between the previous value
+and the current one will be store into the the memory map.
+*/
+func UpdateLogRowCountMetricMap(key string, lastValue int64, debug bool) {
 	currentValue := logRowCountMetricMap[key]
 	nextValue := float64(lastValue)
 
