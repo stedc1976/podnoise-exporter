@@ -3,14 +3,11 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
 	"os/exec"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -29,13 +26,14 @@ var (
 	)
 )
 
-// Type Params stores parameters.
+// Params represents the parameters required of RunJob.
 type Params struct {
 	Path  *string
 	UseWg bool
 	Wg    *sync.WaitGroup
 }
 
+// Metric represents the structure of a metric measured.
 type Metric struct {
 	Namespace    string `json:"namespace"`
 	PodName      string `json:"pod_name"`
@@ -43,49 +41,39 @@ type Metric struct {
 	RowCount     int64  `json:"row_count"`
 }
 
+//Output represents the bash script execution output.
 type Output struct {
 	Metrics []Metric `json:""`
-	Job     string   `json:""`
 }
 
-func (o *Output) RunJob(p *Params) {
-	if p.UseWg {
-		defer p.Wg.Done()
-	}
-	o.RunExec(p.Path)
-}
-
-func (o *Output) RunExec(path *string) {
-
-	out, err := exec.Command(*path).Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = json.Unmarshal(out, &o.Metrics)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
+//Init function
 func init() {
 	// Metrics have to be registered to be exposed:
 	prometheus.MustRegister(logRowCountPrometheus)
 	log.Println("Registered internal metrics")
 }
 
+//Main function
 func main() {
 	addr := flag.String("web.listen-address", ":9300", "Address on which to expose metrics")
 	interval := flag.Int("interval", 10, "Interval for metrics collection in seconds")
 	pathName := flag.String("pathname", "./scripts/job.sh", "pathname bash script")
 	debug := flag.Bool("debug", true, "Debug log true/false")
 	flag.Parse()
-
+	//serve the HTTP request
 	http.Handle("/metrics", promhttp.Handler())
+	//invoke the function Run in a goroutine,
 	go Run(int(*interval), *pathName, *debug)
+	//start a web server listening on a specific port for Prometheus scraping
+	//create a goroutine for every HTTP request and run it against a Handler.
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
+// This function schedule a job every "interval" seconds.
+// This job run the bash script defined in the param "pathname" that collects metrics.
+// Metrics will be store in a memory map and in a memory structure for Prometheus scraping.
+// If "debug" is true, the job print log messages to stdout (default false).
+// If it encounters any errors, it will panic.
 func Run(interval int, pathName string, debug bool) {
 	_, err := ioutil.ReadFile(pathName)
 	if err != nil {
@@ -97,8 +85,9 @@ func Run(interval int, pathName string, debug bool) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		o := Output{}
-		o.Job = strings.Split(pathName, ".")[0]
 		p := Params{UseWg: true, Wg: &wg, Path: &pathName}
+
+		//run the job in a goroutine
 		go o.RunJob(&p)
 		wg.Wait()
 
@@ -111,6 +100,7 @@ func Run(interval int, pathName string, debug bool) {
 				log.Println("New metric read from "+pathName+":", key, value)
 			}
 
+			//store metric into a memory map (global variable)
 			updateLogRowCountMetricMap(key, value, debug)
 
 			prometheusLabels := map[string]string{}
@@ -119,6 +109,7 @@ func Run(interval int, pathName string, debug bool) {
 			prometheusLabels["pod_name"] = val.PodName
 			prometheusLabels["container_log"] = val.ContainerLog
 
+			//store metric into a memory structure for Prometheus (global variable).
 			logRowCountPrometheus.With(prometheus.Labels(prometheusLabels)).Set(logRowCountMetricMap[key])
 
 			if debug == true {
@@ -129,6 +120,35 @@ func Run(interval int, pathName string, debug bool) {
 	}
 }
 
+// This functon implements a job that run the bash script defined in the param.
+// The job execution output will be saved into the variable "o"
+func (o *Output) RunJob(p *Params) {
+	if p.UseWg {
+		defer p.Wg.Done()
+	}
+	//run the bash script
+	o.RunExec(p.Path)
+}
+
+// This function run the bash script defined in the param that collects metrics.
+// Metrics will be saved into the variable "o"
+// If RunExec encounters any errors, it will panic.
+func (o *Output) RunExec(pathname *string) {
+
+	out, err := exec.Command(*pathname).Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(out, &o.Metrics)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// This functon store the metric defined in the param into a memory map (global variable).
+// If the previos values of this metric is greater then 0, the average between the previous value
+// and the current one will be store into the the memory map.
 func updateLogRowCountMetricMap(key string, lastValue int64, debug bool) {
 	currentValue := logRowCountMetricMap[key]
 	nextValue := float64(lastValue)
@@ -143,17 +163,5 @@ func updateLogRowCountMetricMap(key string, lastValue int64, debug bool) {
 
 	if debug == true {
 		log.Println("New metric saved in memory:", key, nextValueRoundToNearest)
-	}
-}
-
-func printLogRowCountMetricMav() {
-	log.Println("Print current content logRowCountMetricMap")
-	keys := make([]string, 0)
-	for k := range logRowCountMetricMap {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		fmt.Println(k, logRowCountMetricMap[k])
 	}
 }
