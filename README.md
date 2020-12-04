@@ -2,7 +2,7 @@
 
 Prometheus exporter for pod noise metrics measured with bash scripts.
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/stedc1976/bash-exporter)](https://goreportcard.com/badge/github.com/stedc1976/bash-exporter)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stedc1976/podnoise-exporter)](https://goreportcard.com/badge/github.com/stedc1976/podnoise-exporter)
 
 ## Installation
 
