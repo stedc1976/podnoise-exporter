@@ -22,7 +22,7 @@ var (
 		Name: "logrowcount",
 		Help: "log row count metric",
 	},
-		[]string{"namespace", "pod_name", "container_log"},
+		[]string{"namespace", "pod_name", "container_name"},
 	)
 )
 
@@ -35,10 +35,10 @@ type Params struct {
 
 // Metric represents the structure of a metric measured.
 type Metric struct {
-	Namespace    string `json:"namespace"`
-	PodName      string `json:"pod_name"`
-	ContainerLog string `json:"container_log"`
-	RowCount     int64  `json:"row_count"`
+	Namespace     string `json:"namespace"`
+	PodName       string `json:"pod_name"`
+	ContainerName string `json:"container_name"`
+	RowCount      int64  `json:"row_count"`
 }
 
 // Output represents the bash script execution output.
@@ -95,7 +95,7 @@ func Run(interval int, pathName string, debug bool) {
 
 		for _, val := range o.Metrics {
 
-			key := val.Namespace + "-" + val.PodName + "-" + val.ContainerLog
+			key := val.Namespace + "-" + val.PodName + "-" + val.ContainerName
 			value := val.RowCount
 
 			if debug {
@@ -109,7 +109,7 @@ func Run(interval int, pathName string, debug bool) {
 
 			prometheusLabels["namespace"] = val.Namespace
 			prometheusLabels["pod_name"] = val.PodName
-			prometheusLabels["container_log"] = val.ContainerLog
+			prometheusLabels["container_name"] = val.ContainerName
 
 			// store metric into a memory structure for Prometheus (global variable).
 			logRowCountPrometheus.With(prometheus.Labels(prometheusLabels)).Set(logRowCountMetricMap[key])
