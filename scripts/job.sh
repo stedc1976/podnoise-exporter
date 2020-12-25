@@ -1,7 +1,23 @@
 #!/bin/sh
 
-echo '[{"namespace": "psd2","pod_name": "3ds-card-12-7spjp","container_name": "3ds-card-4038631ff5792525eee47ff9c0cb945da44cd05f9d48d943fb010d747655b970","row_count": 222}, {"namespace": "crmu-dev","pod_name": "redis-3-t4qlh","container_name": "redis-60faea9b6ec32975946402567018784ab4783e6370c10c7934916f62a80c5157","row_count": 8}]'
-exit 0
+LOG_FILES=$(ls /var/log/containers/)
+ii=0
 
+echo "["
+for LOG_FILE in $LOG_FILES
+do
+	if [ $ii -eq 0 ]; then
+		let "ii++"
+	else
+		echo ","
+	fi
+	LOG_FILE_RAW_COUNT=$(wc -l alertmanager-main-0_openshift-monitoring_alertmanager-123...789.log"$LOG_FILE" | awk 'END {print $1}')
+	STRING=${LOG_FILE%-*}
+	POD_NAME=$(echo $STRING | awk '{split($0,a,"_"); print a[1]}')
+	NAMESPACE=$(echo $STRING | awk '{split($0,a,"_"); print a[2]}')
+	CONTAINER_NAME=$(echo $STRING | awk '{split($0,a,"_"); print a[3]}')
 
+	echo "{\"namespace\":\"$NAMESPACE\",\"pod_name\":\"$POD_NAME\",\"container_name\":\"$CONTAINER_NAME\",\"row_count\":$LOG_FILE_RAW_COUNT}"
+done
+echo "]"
 
